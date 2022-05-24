@@ -1,10 +1,7 @@
 package com.cache;
 
-import java.util.Objects;
-
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
-import com.util.ArrayUtil;
 
 /**
  * The {@code CacheFile} is stored within a {@code CacheArchive}. This
@@ -30,22 +27,6 @@ public class CacheFile {
 		this.index = index;
 		this.data = new byte[0];
 		this.version = 1.0;
-	}
-
-	/**
-	 * Appends the given byte array to the data of this {@code CacheFile}.
-	 * 
-	 * @param arr the array to append
-	 */
-	public void append(byte[] arr) {
-		Objects.requireNonNull(arr, "The appended array cannot be NULL");
-
-		int oldLength = data.length;
-		this.data = ArrayUtil.ensureCapacity(this.data, this.data.length + arr.length);
-		for (int i = 0; i < arr.length; i++)
-			this.data[oldLength + i] = arr[i];
-
-		this.generateChecksum();
 	}
 
 	/**

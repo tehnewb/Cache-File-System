@@ -135,10 +135,10 @@ public class CacheTool {
 		MenuItem mntmFile = new MenuItem(menu, SWT.CASCADE);
 		mntmFile.setText("File");
 
-		Menu menu_1 = new Menu(mntmFile);
-		mntmFile.setMenu(menu_1);
+		Menu fileMenu = new Menu(mntmFile);
+		mntmFile.setMenu(fileMenu);
 
-		MenuItem mntmNew = new MenuItem(menu_1, SWT.NONE);
+		MenuItem mntmNew = new MenuItem(fileMenu, SWT.NONE);
 		mntmNew.setToolTipText("Create a new project");
 		mntmNew.addSelectionListener(new SelectionAdapter() {
 			@Override
@@ -167,7 +167,7 @@ public class CacheTool {
 			}
 		});
 
-		mntmImportCache = new MenuItem(menu_1, SWT.NONE);
+		mntmImportCache = new MenuItem(fileMenu, SWT.NONE);
 		mntmImportCache.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/open.png"));
 		mntmImportCache.setText("Import Cache...\t Ctrl + Shift + O");
 		mntmImportCache.setAccelerator(SWT.CTRL + SWT.SHIFT + 'O');
@@ -215,9 +215,9 @@ public class CacheTool {
 			}
 		});
 
-		new MenuItem(menu_1, SWT.SEPARATOR);
+		new MenuItem(fileMenu, SWT.SEPARATOR);
 
-		mntmSave = new MenuItem(menu_1, SWT.NONE);
+		mntmSave = new MenuItem(fileMenu, SWT.NONE);
 		mntmSave.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/save.png"));
 		mntmSave.setText("Save\tCtrl + S");
 		mntmSave.setAccelerator(SWT.CTRL + 'S');
@@ -249,7 +249,7 @@ public class CacheTool {
 			}
 		});
 
-		mntmSaveAs = new MenuItem(menu_1, SWT.NONE);
+		mntmSaveAs = new MenuItem(fileMenu, SWT.NONE);
 		mntmSaveAs.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/save-as.png"));
 		mntmSaveAs.setText("Save As...\tCtrl + Shift + S");
 		mntmSaveAs.setAccelerator(SWT.CTRL + SWT.SHIFT + 'S');
@@ -271,9 +271,9 @@ public class CacheTool {
 			}
 		});
 
-		new MenuItem(menu_1, SWT.SEPARATOR);
+		new MenuItem(fileMenu, SWT.SEPARATOR);
 
-		MenuItem mntmExit = new MenuItem(menu_1, SWT.NONE);
+		MenuItem mntmExit = new MenuItem(fileMenu, SWT.NONE);
 		mntmExit.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
@@ -284,8 +284,12 @@ public class CacheTool {
 					messageBox.setMessage("You have unsaved changes, are you sure you want to exit without saving?");
 					int result = messageBox.open();
 					if (result == SWT.YES) {
+						shell.dispose();
 						System.exit(0);
 					}
+				} else {
+					shell.dispose();
+					System.exit(0);
 				}
 			}
 		});
@@ -295,10 +299,10 @@ public class CacheTool {
 		MenuItem mntmEdit = new MenuItem(menu, SWT.CASCADE);
 		mntmEdit.setText("Edit");
 
-		Menu menu_2 = new Menu(mntmEdit);
-		mntmEdit.setMenu(menu_2);
+		Menu editMenu = new Menu(mntmEdit);
+		mntmEdit.setMenu(editMenu);
 
-		mntmUndo = new MenuItem(menu_2, SWT.NONE);
+		mntmUndo = new MenuItem(editMenu, SWT.NONE);
 		mntmUndo.setText("Undo\tCtrl + Z");
 		mntmUndo.setEnabled(false);
 		mntmUndo.setAccelerator(SWT.CTRL + 'Z');
@@ -310,7 +314,7 @@ public class CacheTool {
 			}
 		});
 
-		mntmRedo = new MenuItem(menu_2, SWT.NONE);
+		mntmRedo = new MenuItem(editMenu, SWT.NONE);
 		mntmRedo.setText("Redo\tCtrl + Y");
 		mntmRedo.setAccelerator(SWT.CTRL + 'Y');
 		mntmRedo.setEnabled(false);
@@ -322,7 +326,7 @@ public class CacheTool {
 			}
 		});
 
-		mntmAddArchive = new MenuItem(menu_2, SWT.NONE);
+		mntmAddArchive = new MenuItem(editMenu, SWT.NONE);
 		mntmAddArchive.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
@@ -369,7 +373,7 @@ public class CacheTool {
 		mntmAddArchive.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/add-archive.png"));
 		mntmAddArchive.setEnabled(false);
 
-		mntmRemoveArchive = new MenuItem(menu_2, SWT.NONE);
+		mntmRemoveArchive = new MenuItem(editMenu, SWT.NONE);
 		mntmRemoveArchive.setEnabled(false);
 		mntmRemoveArchive.setText("Remove Archive");
 		mntmRemoveArchive.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/delete-archive.png"));
