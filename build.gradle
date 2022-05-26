@@ -2,11 +2,31 @@
 plugins {
 	id 'java'
 	id 'eclipse'
+	id 'distribution'
+	id 'maven-publish'
 }
 
 java.sourceCompatibility = 17
 java.targetCompatibility = 17
 version = '1.0'
+
+distributions {
+    main {
+        distributionBaseName = 'Cache File System'
+        contents {
+            from 'src/main'
+        }
+    }
+}
+
+publishing {
+    publications {
+        myDistribution(MavenPublication) {
+            artifact distZip
+        }
+    }
+}
+
  
 repositories {
     mavenCentral()
@@ -61,8 +81,8 @@ test {
     useJUnitPlatform()
 }
 
-tasks.register("BuildArchiveTool", Jar) {
-	archiveBaseName.set("Archive Tool")
+tasks.register("BuildCacheEditor", Jar) {
+	archiveBaseName.set("CacheEditor")
 	duplicatesStrategy(DuplicatesStrategy.EXCLUDE)
 	dependsOn configurations.runtimeClasspath
 	from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
@@ -71,7 +91,7 @@ tasks.register("BuildArchiveTool", Jar) {
 		exclude('META-INF/INDEX.LIST', 'META-INF/maven/**')
 	}
 	manifest {
-		attributes 'Main-Class': "com.tool.ArchiveTool"
+		attributes 'Main-Class': "com.tool.CacheEditor"
 	}
 	doLast {
 		file(archiveFile).setExecutable(true, false)

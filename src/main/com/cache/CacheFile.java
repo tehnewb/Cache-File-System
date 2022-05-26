@@ -45,7 +45,7 @@ public class CacheFile {
 	 */
 	public void setData(byte[] data) {
 		this.data = data;
-
+		
 		this.generateChecksum();
 	}
 
@@ -98,18 +98,9 @@ public class CacheFile {
 	}
 
 	/**
-	 * Sets the checksum to the given {@code checksum}.
-	 * 
-	 * @param checksum the checksum
-	 */
-	public void setChecksum(long checksum) {
-		this.checksum = checksum;
-	}
-
-	/**
 	 * Generates a 512 bit long checksum.
 	 */
-	private void generateChecksum() {
+	public void generateChecksum() {
 		Hasher hasher = Hashing.sha512().newHasher();
 		hasher.putInt(this.index);
 		hasher.putDouble(this.version);

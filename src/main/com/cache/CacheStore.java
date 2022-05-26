@@ -129,7 +129,6 @@ public class CacheStore implements Iterable<CacheArchive> {
 				CacheFile cacheFile = cacheIndex.getFile(j);
 				sizeInBytes += Integer.BYTES; // bytes for the file index
 				sizeInBytes += Double.BYTES; // bytes for the file version
-				sizeInBytes += Long.BYTES; // bytes for the checksum
 				sizeInBytes += Integer.BYTES; // bytes for the file length
 				sizeInBytes += cacheFile.getData().length * Byte.BYTES; // add every byte count of the file length
 			}
@@ -148,7 +147,6 @@ public class CacheStore implements Iterable<CacheArchive> {
 
 				storeBuffer.putInt(cacheFile.getIndex());
 				storeBuffer.putDouble(cacheFile.getVersion());
-				storeBuffer.putLong(cacheFile.getChecksum());
 				storeBuffer.putInt(cacheFile.getData().length);
 				storeBuffer.put(cacheFile.getData(), 0, cacheFile.getData().length);
 			}
@@ -175,7 +173,6 @@ public class CacheStore implements Iterable<CacheArchive> {
 			for (int j = 0; j < indexFileCount; j++) {
 				int fileID = buffer.getInt();
 				double version = buffer.getDouble();
-				long checksum = buffer.getLong();
 				int fileSize = buffer.getInt();
 				byte[] data = new byte[fileSize];
 				buffer.get(data);
@@ -184,7 +181,6 @@ public class CacheStore implements Iterable<CacheArchive> {
 				cacheIndex.addFile(cacheFile);
 				cacheFile.setData(data);
 				cacheFile.setVersion(version);
-				cacheFile.setChecksum(checksum);
 			}
 			store.addArchive(cacheIndex);
 		}

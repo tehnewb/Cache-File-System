@@ -1,26 +1,36 @@
 package com.tool;
 
+import java.awt.BorderLayout;
+import java.awt.Frame;
+import java.awt.Panel;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.Stack;
+
+import javax.swing.JRootPane;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.ListSelectionModel;
+import javax.swing.ScrollPaneConstants;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
+import javax.swing.table.DefaultTableModel;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.awt.SWT_AWT;
+import org.eclipse.swt.custom.CLabel;
 import org.eclipse.swt.custom.SashForm;
 import org.eclipse.swt.custom.ScrolledComposite;
 import org.eclipse.swt.custom.StyledText;
-import org.eclipse.swt.custom.TableEditor;
-import org.eclipse.swt.dnd.Clipboard;
 import org.eclipse.swt.dnd.DND;
 import org.eclipse.swt.dnd.DropTarget;
 import org.eclipse.swt.dnd.DropTargetAdapter;
 import org.eclipse.swt.dnd.DropTargetEvent;
 import org.eclipse.swt.dnd.FileTransfer;
 import org.eclipse.swt.dnd.ImageTransfer;
-import org.eclipse.swt.dnd.TextTransfer;
 import org.eclipse.swt.dnd.Transfer;
 import org.eclipse.swt.events.MouseAdapter;
 import org.eclipse.swt.events.MouseEvent;
@@ -28,7 +38,6 @@ import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.ImageData;
-import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
@@ -39,51 +48,48 @@ import org.eclipse.swt.widgets.DirectoryDialog;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.FileDialog;
 import org.eclipse.swt.widgets.Label;
-import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.swt.widgets.Table;
-import org.eclipse.swt.widgets.TableColumn;
-import org.eclipse.swt.widgets.TableItem;
-import org.eclipse.swt.widgets.Text;
 import org.eclipse.swt.widgets.Tree;
 import org.eclipse.swt.widgets.TreeItem;
+import org.eclipse.wb.swt.SWTResourceManager;
 
 import com.cache.CacheArchive;
 import com.cache.CacheFile;
 import com.cache.CacheStore;
 
-public class CacheTool {
+/**
+ * The {@code CacheEditor} allows for creating and modifying a
+ * {@code CacheStore}.
+ * 
+ * @author Albert Beaupre
+ */
+public class CacheEditor {
 
-	private MenuItem mntmUndo, mntmRedo;
 	private MenuItem mntmSave, mntmSaveAs;
 	private MenuItem mntmAddArchive, mntmRemoveArchive;
-
-	private Table table;
-	private TableColumn propertyColumn, propertyValueColumn;
-	private TableItem tableIndexItem, tableVersionItem, tableChecksumItem, tableFileSizeItem, tableFileNameItem;
-
-	private StyledText fileDataText;
-	private Button dragAndDropButton;
-
 	private MenuItem mntmImportCache;
 
-	private Label tableTitleLabel;
+	private StyledText fileDataText;
+
+	private Button dragAndDropButton;
 
 	private Tree archiveTree;
-
-	private Stack<UndoCommand> undoStack;
-	private Stack<UndoCommand> redoStack;
 
 	private boolean requiresSave;
 	private File projectPath;
 	private File saveFile;
 
+	private JScrollPane tableScrollPane;
+
+	private CacheArchive currentViewingArchive;
+	private CacheFile currentViewingFile;
 	private CacheStore store;
 
 	protected Shell shell;
+	private JTable table;
 
 	/**
 	 * Launch the application.
@@ -92,7 +98,7 @@ public class CacheTool {
 	 */
 	public static void main(String[] args) {
 		try {
-			CacheTool window = new CacheTool();
+			CacheEditor window = new CacheEditor();
 			window.open();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -107,6 +113,7 @@ public class CacheTool {
 
 		createContents();
 
+		shell.setMaximized(true);
 		shell.open();
 		shell.layout();
 
@@ -120,11 +127,10 @@ public class CacheTool {
 	/**
 	 * Create contents of the window.
 	 */
+	@SuppressWarnings("serial")
 	protected void createContents() {
-		undoStack = new Stack<>();
-		redoStack = new Stack<>();
 		shell = new Shell();
-		shell.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/icon-100.png"));
+		shell.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/icon-100.png"));
 		shell.setSize(800, 600);
 		shell.setText("Cache Editor");
 		shell.setLayout(new FillLayout());
@@ -140,11 +146,7 @@ public class CacheTool {
 
 		MenuItem mntmNew = new MenuItem(fileMenu, SWT.NONE);
 		mntmNew.setToolTipText("Create a new project");
-		mntmNew.addSelectionListener(new SelectionAdapter() {
-			@Override
-			public void widgetSelected(SelectionEvent e) {}
-		});
-		mntmNew.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/new-file.png"));
+		mntmNew.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/new-file.png"));
 		mntmNew.setText("New Project\t Ctrl + Shift + N");
 		mntmNew.setAccelerator(SWT.CTRL + SWT.SHIFT + 'N');
 		mntmNew.addSelectionListener(new SelectionAdapter() {
@@ -157,7 +159,7 @@ public class CacheTool {
 
 				String path = dialog.open();
 				if (Objects.nonNull(path)) {
-					CacheTool.this.projectPath = new File(path);
+					CacheEditor.this.projectPath = new File(path);
 					store = new CacheStore();
 					mntmSave.setEnabled(true);
 					mntmSaveAs.setEnabled(true);
@@ -168,7 +170,7 @@ public class CacheTool {
 		});
 
 		mntmImportCache = new MenuItem(fileMenu, SWT.NONE);
-		mntmImportCache.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/open.png"));
+		mntmImportCache.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/open.png"));
 		mntmImportCache.setText("Import Cache...\t Ctrl + Shift + O");
 		mntmImportCache.setAccelerator(SWT.CTRL + SWT.SHIFT + 'O');
 		mntmImportCache.setEnabled(false);
@@ -185,14 +187,14 @@ public class CacheTool {
 					String filePath = dialog.open();
 
 					if (Objects.nonNull(filePath)) {
-						CacheTool.this.saveFile = new File(filePath);
-						CacheTool.this.store = CacheStore.load(saveFile);
+						CacheEditor.this.saveFile = new File(filePath);
+						CacheEditor.this.store = CacheStore.load(saveFile);
 
 						archiveTree.clearAll(true);
 
 						for (CacheArchive archive : store.getArchives()) {
 
-							Image archiveImage = SWTResourceManager.getImage(CacheTool.class, "/resources/icons/add-archive.png");
+							Image archiveImage = SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/add-archive.png");
 
 							TreeItem archiveItem = new TreeItem(archiveTree, SWT.V_SCROLL);
 							archiveItem.setImage(archiveImage);
@@ -205,7 +207,7 @@ public class CacheTool {
 								treeItem.setText("File " + file.getIndex());
 								treeItem.setData(file);
 								treeItem.setChecked(true);
-								treeItem.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/file-empty.png"));
+								treeItem.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/file-empty.png"));
 							}
 						}
 					}
@@ -218,7 +220,7 @@ public class CacheTool {
 		new MenuItem(fileMenu, SWT.SEPARATOR);
 
 		mntmSave = new MenuItem(fileMenu, SWT.NONE);
-		mntmSave.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/save.png"));
+		mntmSave.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/save.png"));
 		mntmSave.setText("Save\tCtrl + S");
 		mntmSave.setAccelerator(SWT.CTRL + 'S');
 		mntmSave.setEnabled(false);
@@ -226,7 +228,7 @@ public class CacheTool {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
 				try {
-					if (Objects.isNull(CacheTool.this.saveFile)) {
+					if (Objects.isNull(CacheEditor.this.saveFile)) {
 						FileDialog dialog = new FileDialog(shell, SWT.SAVE);
 						dialog.setFilterNames(new String[] { "Cache Files", "All Files (*.*)" });
 						dialog.setFilterExtensions(new String[] { "*.cache", "*.*" });
@@ -235,7 +237,7 @@ public class CacheTool {
 						String filePath = dialog.open();
 
 						if (Objects.nonNull(filePath)) {
-							CacheTool.this.saveFile = new File(filePath);
+							CacheEditor.this.saveFile = new File(filePath);
 							store.save(saveFile);
 						}
 					} else {
@@ -250,7 +252,7 @@ public class CacheTool {
 		});
 
 		mntmSaveAs = new MenuItem(fileMenu, SWT.NONE);
-		mntmSaveAs.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/save-as.png"));
+		mntmSaveAs.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/save-as.png"));
 		mntmSaveAs.setText("Save As...\tCtrl + Shift + S");
 		mntmSaveAs.setAccelerator(SWT.CTRL + SWT.SHIFT + 'S');
 		mntmSaveAs.setEnabled(false);
@@ -262,7 +264,7 @@ public class CacheTool {
 					dialog.setFilterNames(new String[] { "Cache Files", "All Files (*.*)" });
 					dialog.setFilterExtensions(new String[] { "*.cache", "*.*" });
 					dialog.setFilterPath(projectPath.getPath());
-					CacheTool.this.saveFile = new File(dialog.open());
+					CacheEditor.this.saveFile = new File(dialog.open());
 					store.save(saveFile);
 					requiresSave = false;
 				} catch (Exception e1) {
@@ -277,7 +279,7 @@ public class CacheTool {
 		mntmExit.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
-				if (CacheTool.this.requiresSave) {
+				if (CacheEditor.this.requiresSave) {
 					MessageBox messageBox = new MessageBox(shell, SWT.ICON_WARNING | SWT.YES | SWT.NO);
 
 					messageBox.setText("Unsaved changes");
@@ -293,7 +295,7 @@ public class CacheTool {
 				}
 			}
 		});
-		mntmExit.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/close.png"));
+		mntmExit.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/close.png"));
 		mntmExit.setText("Close");
 
 		MenuItem mntmEdit = new MenuItem(menu, SWT.CASCADE);
@@ -302,81 +304,56 @@ public class CacheTool {
 		Menu editMenu = new Menu(mntmEdit);
 		mntmEdit.setMenu(editMenu);
 
-		mntmUndo = new MenuItem(editMenu, SWT.NONE);
-		mntmUndo.setText("Undo\tCtrl + Z");
-		mntmUndo.setEnabled(false);
-		mntmUndo.setAccelerator(SWT.CTRL + 'Z');
-		mntmUndo.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/undo.png"));
-		mntmUndo.addSelectionListener(new SelectionAdapter() {
-			@Override
-			public void widgetSelected(SelectionEvent e) {
-				undo();
-			}
-		});
-
-		mntmRedo = new MenuItem(editMenu, SWT.NONE);
-		mntmRedo.setText("Redo\tCtrl + Y");
-		mntmRedo.setAccelerator(SWT.CTRL + 'Y');
-		mntmRedo.setEnabled(false);
-		mntmRedo.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/redo.png"));
-		mntmRedo.addSelectionListener(new SelectionAdapter() {
-			@Override
-			public void widgetSelected(SelectionEvent e) {
-				redo();
-			}
-		});
-
 		mntmAddArchive = new MenuItem(editMenu, SWT.NONE);
 		mntmAddArchive.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
+				Image archiveImage = SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/add-archive.png");
 
-				UndoCommand command = new UndoCommand() {
-					String commandName;
-					TreeItem archiveItem;
+				CacheArchive archive = new CacheArchive(store.getArchives().length);
 
-					@Override
-					public void execute() {
-						Image archiveImage = SWTResourceManager.getImage(CacheTool.class, "/resources/icons/add-archive.png");
+				TreeItem archiveItem = new TreeItem(archiveTree, SWT.V_SCROLL);
+				archiveItem.setImage(archiveImage);
+				archiveItem.setText("Archive " + archive.getIndex());
+				archiveItem.setData(archive);
 
-						CacheArchive archive = new CacheArchive(store.getArchives().length);
-
-						archiveItem = new TreeItem(archiveTree, SWT.V_SCROLL);
-						archiveItem.setImage(archiveImage);
-						archiveItem.setText("Archive " + archive.getIndex());
-						archiveItem.setData(archive);
-						commandName = "Add archive " + archive.getIndex();
-
-						store.addArchive(archive);
-					}
-
-					@Override
-					public void undo() {
-						archiveItem.dispose();
-					}
-
-					@Override
-					public void redo() {
-						execute();
-					}
-
-					@Override
-					public String command() {
-						return commandName;
-					}
-
-				};
-				execute(command);
+				store.addArchive(archive);
 			}
 		});
 		mntmAddArchive.setText("Add Archive");
-		mntmAddArchive.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/add-archive.png"));
+		mntmAddArchive.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/add-archive.png"));
 		mntmAddArchive.setEnabled(false);
 
 		mntmRemoveArchive = new MenuItem(editMenu, SWT.NONE);
 		mntmRemoveArchive.setEnabled(false);
 		mntmRemoveArchive.setText("Remove Archive");
-		mntmRemoveArchive.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/delete-archive.png"));
+		mntmRemoveArchive.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/delete-archive.png"));
+		mntmRemoveArchive.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				store.removeArchive(currentViewingArchive.getIndex());
+				archiveTree.removeAll();
+
+				for (CacheArchive archive : store.getArchives()) {
+
+					Image archiveImage = SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/add-archive.png");
+
+					TreeItem archiveItem = new TreeItem(archiveTree, SWT.V_SCROLL);
+					archiveItem.setImage(archiveImage);
+					archiveItem.setText("Archive " + archive.getIndex());
+					archiveItem.setData(archive);
+
+					for (CacheFile file : archive.getFiles()) {
+
+						TreeItem treeItem = new TreeItem(archiveItem, SWT.V_SCROLL);
+						treeItem.setText("File " + file.getIndex());
+						treeItem.setData(file);
+						treeItem.setChecked(true);
+						treeItem.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/file-empty.png"));
+					}
+				}
+			}
+		});
 
 		SashForm sashForm = new SashForm(shell, SWT.NONE);
 		sashForm.setLayout(new FillLayout());
@@ -408,14 +385,14 @@ public class CacheTool {
 										treeItem.setText("File " + file.getIndex());
 										treeItem.setData(file);
 										treeItem.setChecked(true);
-										treeItem.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/file-empty.png"));
+										treeItem.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/file-empty.png"));
 										archiveTree.showItem(treeItem);
 										archiveTree.setSelection(treeItem);
 										archive.addFile(file);
 									}
 								});
 								MenuItem deleteArchive = new MenuItem(menu, SWT.CASCADE);
-								deleteArchive.setText("Delete Archive");
+								deleteArchive.setText("Remove Archive");
 								deleteArchive.addSelectionListener(new SelectionAdapter() {
 									@Override
 									public void widgetSelected(SelectionEvent e) {
@@ -426,12 +403,12 @@ public class CacheTool {
 											TreeItem archiveItem = new TreeItem(archiveTree, SWT.V_SCROLL);
 											archiveItem.setText("Archive " + archive.getIndex());
 											archiveItem.setData(archive);
-											archiveItem.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/add-archive.png"));
+											archiveItem.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/add-archive.png"));
 											for (CacheFile file : archive.getFiles()) {
 												TreeItem treeItem = new TreeItem(archiveItem, SWT.V_SCROLL);
 												treeItem.setText("File " + file.getIndex());
 												treeItem.setData(file);
-												treeItem.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/file-empty.png"));
+												treeItem.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/file-empty.png"));
 											}
 										}
 									}
@@ -455,7 +432,7 @@ public class CacheTool {
 											treeItem.setText("File " + file.getIndex());
 											treeItem.setData(file);
 											treeItem.setChecked(true);
-											treeItem.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/file-empty.png"));
+											treeItem.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/file-empty.png"));
 										}
 									}
 								});
@@ -479,20 +456,16 @@ public class CacheTool {
 
 						dragAndDropButton.setVisible(false);
 						table.setVisible(false);
-						tableTitleLabel.setVisible(false);
 						fileDataText.setText("");
 					} else if (selection.getData() instanceof CacheFile) {
-						CacheFile archiveFile = CacheFile.class.cast(selection.getData());
-						dragAndDropButton.setVisible(true);
-						tableTitleLabel.setVisible(true);
-						table.setVisible(true);
-						table.showColumn(propertyColumn);
-						table.showColumn(propertyValueColumn);
+						CacheFile cacheFile = CacheFile.class.cast(selection.getData());
 
-						displayFileProperties(archiveFile);
+						displayFileProperties(cacheFile);
+
+						dragAndDropButton.setVisible(true);
+						table.setVisible(true);
 					} else {
 						dragAndDropButton.setVisible(false);
-						tableTitleLabel.setVisible(false);
 						table.setVisible(false);
 						fileDataText.setText("");
 					}
@@ -501,7 +474,6 @@ public class CacheTool {
 				} else {
 					dragAndDropButton.setVisible(false);
 					mntmRemoveArchive.setEnabled(false);
-					tableTitleLabel.setVisible(false);
 					table.setVisible(false);
 
 					fileDataText.setText("");
@@ -520,7 +492,7 @@ public class CacheTool {
 		composite.setLayout(new FormLayout());
 
 		dragAndDropButton = new Button(composite, SWT.CENTER);
-		dragAndDropButton.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/drag-drop.png"));
+		dragAndDropButton.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/drag-drop.png"));
 		dragAndDropButton.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
@@ -535,7 +507,6 @@ public class CacheTool {
 						TreeItem selection = archiveTree.getSelection()[0];
 						CacheFile file = CacheFile.class.cast(selection.getData());
 						file.setData(fileData);
-
 						StringBuilder builder = new StringBuilder();
 						String fileSize = String.format("%,d", file.getData().length);
 						builder.append("File Size: " + fileSize + " bytes\n");
@@ -543,7 +514,7 @@ public class CacheTool {
 
 						fileDataText.setText(builder.toString());
 
-						selection.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/file-full.png"));
+						selection.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/file-full.png"));
 
 						displayFileProperties(file);
 					} catch (IOException e1) {
@@ -574,7 +545,7 @@ public class CacheTool {
 
 						fileDataText.setText(builder.toString());
 
-						selection.setImage(SWTResourceManager.getImage(CacheTool.class, "/resources/icons/file-full.png"));
+						selection.setImage(SWTResourceManager.getImage(CacheEditor.class, "/resources/icons/file-full.png"));
 						displayFileProperties(file);
 					} catch (IOException e) {
 						e.printStackTrace();
@@ -614,212 +585,99 @@ public class CacheTool {
 		fileDataTextForm.left = new FormAttachment(0, 10);
 		fileDataText.setLayoutData(fileDataTextForm);
 
-		table = new Table(composite, SWT.FULL_SELECTION);
-		table.setFont(SWTResourceManager.getFont("Arial Baltic", 9, SWT.NORMAL));
-		table.setHeaderVisible(true);
-		table.setLinesVisible(true);
-		table.setVisible(false);
-		table.addMouseListener(new MouseAdapter() {
+		CLabel lblNewLabel = new CLabel(composite, SWT.NONE);
+		lblNewLabel.setAlignment(SWT.CENTER);
+		FormData fd_lblNewLabel = new FormData();
+		fd_lblNewLabel.right = new FormAttachment(dragAndDropButton, -10, SWT.RIGHT);
+		fd_lblNewLabel.left = new FormAttachment(dragAndDropButton, 10, SWT.LEFT);
+		fd_lblNewLabel.top = new FormAttachment(0, 10);
+		lblNewLabel.setLayoutData(fd_lblNewLabel);
+		lblNewLabel.setText("File Properties");
+
+		Label label = new Label(composite, SWT.SEPARATOR | SWT.HORIZONTAL);
+		FormData fd_label = new FormData();
+		fd_label.bottom = new FormAttachment(lblNewLabel, 13, SWT.BOTTOM);
+		fd_label.left = new FormAttachment(lblNewLabel, 10, SWT.LEFT);
+		fd_label.top = new FormAttachment(lblNewLabel, 11);
+		fd_label.right = new FormAttachment(lblNewLabel, -10, SWT.RIGHT);
+		label.setLayoutData(fd_label);
+
+		Composite composite_1 = new Composite(composite, SWT.BORDER | SWT.EMBEDDED);
+		FormData fd_composite_1 = new FormData();
+		fd_composite_1.bottom = new FormAttachment(label, 106, SWT.BOTTOM);
+		fd_composite_1.right = new FormAttachment(dragAndDropButton, 0, SWT.RIGHT);
+		fd_composite_1.top = new FormAttachment(label, 18);
+		fd_composite_1.left = new FormAttachment(lblNewLabel, 0, SWT.LEFT);
+		composite_1.setLayoutData(fd_composite_1);
+
+		Frame frame = SWT_AWT.new_Frame(composite_1);
+
+		Panel panel = new Panel();
+		frame.add(panel);
+		panel.setLayout(new BorderLayout(0, 0));
+
+		JRootPane rootPane = new JRootPane();
+		panel.add(rootPane);
+
+		table = new JTable();
+		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+		table.setRowSelectionAllowed(false);
+		table.setFillsViewportHeight(true);
+		table.setBorder(null);
+		table.getTableHeader().setReorderingAllowed(false);
+		table.setModel(new DefaultTableModel(new Object[][] { { "Index", null }, { "Version", null }, { "Size", null }, { "Checksum", null } }, new String[] { "Property", "Value" }) {
+
 			@Override
-			public void mouseDown(MouseEvent e) {
-				TableItem item = table.getItem(new Point(e.x, e.y));
-				if (e.button == 3 && Objects.nonNull(item)) {
-					Menu menu = new Menu(table);
-					MenuItem copyItem = new MenuItem(menu, SWT.CASCADE);
-					copyItem.setText("Copy");
-					copyItem.addSelectionListener(new SelectionAdapter() {
-						@Override
-						public void widgetSelected(SelectionEvent e) {
-							Clipboard clipboard = new Clipboard(Display.getDefault());
-							String selectedText = table.getSelection()[0].getText(1);
-
-							clipboard.setContents(new Object[] { selectedText.toString() }, new Transfer[] { TextTransfer.getInstance() });
-							clipboard.dispose();
-						}
-					});
-
-					table.setMenu(menu);
-					menu.setVisible(true);
-				}
+			public boolean isCellEditable(int row, int column) {
+				return column == 1 && row == 1;
 			}
 		});
+		table.getModel().addTableModelListener(new TableModelListener() {
 
-		FormData tableForm = new FormData();
-		tableForm.right = new FormAttachment(dragAndDropButton, 0, SWT.RIGHT);
-		tableForm.bottom = new FormAttachment(0, 155);
-		tableForm.top = new FormAttachment(0, 36);
-		tableForm.left = new FormAttachment(0, 10);
-		table.setLayoutData(tableForm);
+			@Override
+			public void tableChanged(TableModelEvent e) {
+				int column = e.getColumn();
+				int row = e.getFirstRow();
+				String value = (String) table.getValueAt(row, column);
 
-		tableTitleLabel = new Label(composite, SWT.NONE);
-		tableTitleLabel.setAlignment(SWT.CENTER);
-		tableTitleLabel.setVisible(false);
-		FormData dragAndDropForm = new FormData();
-		dragAndDropForm.bottom = new FormAttachment(table, -6);
-		dragAndDropForm.right = new FormAttachment(dragAndDropButton, 0, SWT.RIGHT);
-
-		propertyColumn = new TableColumn(table, SWT.CENTER);
-		propertyColumn.setWidth(126);
-		propertyColumn.setText("Property");
-
-		tableIndexItem = new TableItem(table, SWT.NONE);
-		tableIndexItem.setText("Index");
-		tableIndexItem.setData("uneditable");
-
-		tableVersionItem = new TableItem(table, SWT.NONE);
-		tableVersionItem.setText("Version");
-
-		tableFileSizeItem = new TableItem(table, SWT.NONE);
-		tableFileSizeItem.setText("Size");
-		tableFileSizeItem.setData("uneditable");
-
-		propertyValueColumn = new TableColumn(table, SWT.CENTER);
-		propertyValueColumn.setWidth(460);
-		propertyValueColumn.setText("Value");
-
-		tableFileNameItem = new TableItem(table, SWT.NONE);
-		tableFileNameItem.setText("Name");
-
-		tableChecksumItem = new TableItem(table, SWT.NONE);
-		tableChecksumItem.setText("Checksum");
-
-		final TableEditor editor = new TableEditor(table);
-
-		editor.horizontalAlignment = SWT.LEFT;
-		editor.grabHorizontal = true;
-		table.addListener(SWT.MouseDown, event -> {
-			Point pt = new Point(event.x, event.y);
-			TableItem item = table.getItem(pt);
-			if (Objects.nonNull(item)) {
-				final int column = 1;
-				final Text text = new Text(table, SWT.NONE);
-				Listener textListener = e -> {
-					switch (e.type) {
-					case SWT.FocusOut:
-						item.setText(column, text.getText());
-
-						CacheFile file = CacheFile.class.cast(archiveTree.getSelection()[0].getData());
-						try {
-							switch (item.getText(0)) {
-							//TODO case "Name" -> file.setFileName(text.getText());
-							case "Version" -> file.setVersion(Double.parseDouble(text.getText()));
-							case "Checksum" -> file.setChecksum(Integer.parseInt(text.getText()));
-							}
-						} catch (Exception ex) {
-							MessageBox messageBox = new MessageBox(shell, SWT.OK);
-							messageBox.setMessage(ex.getLocalizedMessage());
-							messageBox.setText("Error Updating Table");
-						}
-
-						text.dispose();
-						break;
-					case SWT.Traverse:
-						switch (e.detail) {
-						case SWT.TRAVERSE_RETURN:
-							item.setText(column, text.getText());
-
-							file = CacheFile.class.cast(archiveTree.getSelection()[0].getData());
-							try {
-								switch (item.getText(0)) {
-								/*
-								 * TODO case "Name" -> { file.setFileName(text.getText());
-								 * currentViewingTreeItem.setText(file.getFileName()); }
-								 */
-								case "Version" -> file.setVersion(Double.parseDouble(text.getText()));
-								case "Checksum" -> file.setChecksum(Integer.parseInt(text.getText()));
-								}
-							} catch (Exception ex) {
-								MessageBox messageBox = new MessageBox(shell, SWT.OK);
-								messageBox.setMessage(ex.getMessage());
-								messageBox.setText("Error Updating Table");
-								messageBox.open();
-							}
-							//FALL THROUGH
-						case SWT.TRAVERSE_ESCAPE:
-							text.dispose();
-							e.doit = false;
-						}
+				if (column == 1) {
+					switch (row) {
+					case 1:
+						currentViewingFile.setVersion(Double.parseDouble(value));
 						break;
 					}
-				};
-				text.addListener(SWT.FocusOut, textListener);
-				text.addListener(SWT.Traverse, textListener);
-				editor.setEditor(text, item, column);
-				text.setText(item.getText(column));
-				text.selectAll();
-				text.setFocus();
+				}
 			}
-		});
 
-		dragAndDropForm.left = new FormAttachment(dragAndDropButton, 0, SWT.LEFT);
-		tableTitleLabel.setLayoutData(dragAndDropForm);
-		tableTitleLabel.setText("File Properties");
+		});
+		table.setVisible(false);
+
+		tableScrollPane = new JScrollPane(table);
+		tableScrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+		tableScrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+		tableScrollPane.setEnabled(false);
+		rootPane.getContentPane().add(tableScrollPane, BorderLayout.NORTH);
+
+		FormData updateChecksumForm = new FormData();
+		updateChecksumForm.right = new FormAttachment(0, 311);
+		updateChecksumForm.left = new FormAttachment(0, 20);
+
 		scrolledCompositeRight.setContent(composite);
 		scrolledCompositeRight.setMinSize(composite.computeSize(SWT.DEFAULT, SWT.DEFAULT));
 		sashForm.setWeights(new int[] { 170, 611 });
 	}
 
 	private void displayFileProperties(CacheFile file) {
-		tableIndexItem.setText(1, "" + file.getIndex());
-		tableFileNameItem.setText(1, "File " + file.getIndex());
-		tableFileSizeItem.setText(1, "" + file.getData().length);
-		tableVersionItem.setText(1, "" + file.getVersion());
-		tableChecksumItem.setText(1, "" + file.getChecksum());
+		currentViewingFile = file;
+		table.setValueAt("" + file.getIndex(), 0, 1);
+		table.setValueAt("" + file.getVersion(), 1, 1);
+		table.setValueAt("" + String.format("%,d", file.getData().length) + " bytes", 2, 1);
+		table.setValueAt("" + file.getChecksum(), 3, 1);
+		table.setVisible(true);
 	}
 
 	private void displayArchiveProperties(CacheArchive archive) {
-
-	}
-
-	public void undo() {
-		UndoCommand command = undoStack.pop();
-		command.undo();
-		redoStack.add(command);
-
-		refreshCommandStack();
-		this.requiresSave = true;
-	}
-
-	public void redo() {
-		UndoCommand command = redoStack.pop();
-		command.redo();
-		undoStack.add(command);
-		refreshCommandStack();
-		this.requiresSave = true;
-	}
-
-	public void execute(UndoCommand command) {
-		command.execute();
-		undoStack.add(command);
-
-		refreshCommandStack();
-
-		this.requiresSave = true;
-	}
-
-	private void refreshCommandStack() {
-		if (undoStack.isEmpty()) {
-			this.mntmUndo.setEnabled(false);
-		} else {
-			this.mntmUndo.setEnabled(true);
-			this.mntmUndo.setText("Undo\tCtrl + Z   " + undoStack.peek().command());
-		}
-		if (redoStack.isEmpty()) {
-			this.mntmRedo.setEnabled(false);
-		} else {
-			this.mntmRedo.setEnabled(true);
-			this.mntmRedo.setText("Redo\tCtrl + Y   " + redoStack.peek().command());
-		}
-
-	}
-
-	private interface UndoCommand {
-		void execute();
-
-		void undo();
-
-		void redo();
-
-		String command();
+		currentViewingArchive = archive;
 	}
 }

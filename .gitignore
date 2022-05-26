@@ -1,2 +1,4 @@
 swing2swt.jar
+/.gradle
 /bin
+/build
