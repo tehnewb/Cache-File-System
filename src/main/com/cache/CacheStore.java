@@ -43,7 +43,9 @@ public class CacheStore implements Iterable<CacheArchive> {
 	 */
 	public void addArchive(CacheArchive archive) {
 		if (archive.getIndex() <= -1)
-			throw new IllegalArgumentException("A cache index cannot be stored with a negative ID");
+			throw new IllegalArgumentException("An archive index cannot be stored with a negative ID");
+		if (archive.getIndex() > archives.length)
+			throw new UnsupportedOperationException("The next archive index must be " + archives.length);
 		this.archives = ArrayUtil.ensureCapacity(this.archives, archive.getIndex());
 		this.archives[archive.getIndex()] = archive;
 	}
@@ -117,6 +119,10 @@ public class CacheStore implements Iterable<CacheArchive> {
 			}
 		}
 
+		if (this.archives.length == 0) {
+			System.err.println("WARNING: Saving empty cache store");
+		}
+
 		int sizeInBytes = Integer.BYTES; // bytes for the indeces length
 
 		for (int i = 0; i < this.archives.length; i++) {
@@ -155,8 +161,7 @@ public class CacheStore implements Iterable<CacheArchive> {
 	}
 
 	/**
-	 * Loads the given {@code file} and stores it into a {@code CacheStore} using
-	 * the BZip2 Compression.
+	 * Loads the given {@code file} and stores it into a {@code CacheStore}.
 	 * 
 	 * @param file the file to load
 	 * @return the cache store to return
@@ -166,10 +171,15 @@ public class CacheStore implements Iterable<CacheArchive> {
 		CacheStore store = new CacheStore();
 		ByteBuffer buffer = ByteBuffer.wrap(Files.readAllBytes(file.toPath()));
 		int indexCount = buffer.getInt();
+
+		if (indexCount == 0) {
+			System.err.println("WARNING: Loading empty cache");
+		}
+
 		for (int i = 0; i < indexCount; i++) {
 			int indexID = buffer.getInt();
 			int indexFileCount = buffer.getInt();
-			CacheArchive cacheIndex = new CacheArchive(indexID);
+			CacheArchive archive = new CacheArchive(indexID);
 			for (int j = 0; j < indexFileCount; j++) {
 				int fileID = buffer.getInt();
 				double version = buffer.getDouble();
@@ -177,12 +187,12 @@ public class CacheStore implements Iterable<CacheArchive> {
 				byte[] data = new byte[fileSize];
 				buffer.get(data);
 
-				CacheFile cacheFile = new CacheFile(fileID);
-				cacheIndex.addFile(cacheFile);
+				CacheFile cacheFile = new CacheFile(archive, fileID);
+				archive.addFile(cacheFile);
 				cacheFile.setData(data);
 				cacheFile.setVersion(version);
 			}
-			store.addArchive(cacheIndex);
+			store.addArchive(archive);
 		}
 		return store;
 	}

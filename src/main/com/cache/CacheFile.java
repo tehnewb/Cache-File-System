@@ -12,6 +12,7 @@ import com.google.common.hash.Hashing;
  */
 public class CacheFile {
 
+	private final CacheArchive archive;
 	private int index;
 	private double version;
 	private byte[] data;
@@ -23,7 +24,8 @@ public class CacheFile {
 	 * 
 	 * @param index the index of this file
 	 */
-	public CacheFile(int index) {
+	public CacheFile(CacheArchive archive, int index) {
+		this.archive = archive;
 		this.index = index;
 		this.data = new byte[0];
 		this.version = 1.0;
@@ -45,7 +47,7 @@ public class CacheFile {
 	 */
 	public void setData(byte[] data) {
 		this.data = data;
-		
+
 		this.generateChecksum();
 	}
 
@@ -102,10 +104,20 @@ public class CacheFile {
 	 */
 	public void generateChecksum() {
 		Hasher hasher = Hashing.sha512().newHasher();
+		hasher.putInt(this.archive.getIndex());
 		hasher.putInt(this.index);
 		hasher.putDouble(this.version);
 		hasher.putBytes(this.data);
 		this.checksum = hasher.hash().asLong();
+	}
+
+	/**
+	 * Returns the archive that this {@code CacheFile} is attached to.
+	 * 
+	 * @return the archive
+	 */
+	public CacheArchive getArchive() {
+		return archive;
 	}
 
 	@Override

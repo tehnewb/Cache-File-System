@@ -62,7 +62,7 @@ public class CacheArchive {
 	 * @param data the data in bytes of the file
 	 */
 	public void addFile(int id, byte[] data) {
-		CacheFile file = new CacheFile(id);
+		CacheFile file = new CacheFile(this, id);
 		file.setData(data);
 		this.addFile(file);
 	}
@@ -93,7 +93,7 @@ public class CacheArchive {
 		try {
 			return getFile(id);
 		} catch (Exception e) {
-			CacheFile file = new CacheFile(id);
+			CacheFile file = new CacheFile(this, id);
 			this.addFile(file);
 			return file;
 		}

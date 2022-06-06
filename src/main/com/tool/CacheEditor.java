@@ -379,7 +379,7 @@ public class CacheEditor {
 								addFile.addSelectionListener(new SelectionAdapter() {
 									@Override
 									public void widgetSelected(SelectionEvent e) {
-										CacheFile file = new CacheFile(archive.getFiles().length); //if no file found, it creates one
+										CacheFile file = new CacheFile(archive, archive.getFiles().length); //if no file found, it creates one
 
 										TreeItem treeItem = new TreeItem(selection, SWT.V_SCROLL);
 										treeItem.setText("File " + file.getIndex());

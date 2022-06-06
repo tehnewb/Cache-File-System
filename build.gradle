@@ -46,7 +46,6 @@ dependencies {
 	// https://mvnrepository.com/artifact/org.eclipse.platform/org.eclipse.swt.win32.win32.x86_64
 	implementation 'org.eclipse.platform:org.eclipse.swt.win32.win32.x86_64:3.119.0'
 	
-	
 	// https://mvnrepository.com/artifact/org.eclipse.platform/org.eclipse.jface
 	implementation 'org.eclipse.platform:org.eclipse.jface:3.25.0'
 
@@ -57,6 +56,16 @@ dependencies {
 	
 	// https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
 	implementation 'org.apache.commons:commons-lang3:3.12.0'
+	
+	// https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc
+	implementation 'com.microsoft.sqlserver:mssql-jdbc:11.1.1.jre11-preview'
+
+	// https://mvnrepository.com/artifact/mysql/mysql-connector-java
+	implementation 'mysql:mysql-connector-java:8.0.29'
+	
+	// https://mvnrepository.com/artifact/org.jooq/jooq
+	implementation 'org.jooq:jooq:3.16.6'
+
 }
 
 configurations.all {
